@@ -1,8 +1,19 @@
 {
-  "extends": "tsconfig/base.json",
   "compilerOptions": {
     "target": "ES2021",
     "jsx": "react-jsx",
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "typeRoots": ["node_modules/@types", "node_modules/@figma"]
-  }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
 }

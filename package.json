@@ -1,19 +1,16 @@
 {
   "name": "figo",
   "private": true,
-  "packageManager": "pnpm@9.14.4",
   "scripts": {
-    "build": "turbo run build",
-    "build:watch": "turbo run build:watch",
-    "dev": "turbo run dev --concurrency 20",
-    "lint": "turbo run lint",
+    "dev": "cd apps/plugin && npm run dev",
+    "build": "cd apps/plugin && npm run build",
+    "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write \"**/*.{ts,tsx,css,md}\""
   },
   "devDependencies": {
     "eslint": "^9.29.0",
-    "eslint-config-custom": "workspace:*",
+    "eslint-config-kentcdodds": "^21.0.0",
     "prettier": "^3.6.2",
-    "turbo": "^2.5.4",
     "typescript": "^5.8.3"
   }
 }
