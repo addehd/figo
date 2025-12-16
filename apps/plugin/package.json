@@ -1,0 +1,38 @@
+{
+  "name": "figo-plugin",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "pnpm run build:ui && pnpm run build:main --minify --tree-shaking=true",
+    "build:main": "esbuild plugin-src/code.ts --bundle --target=ES6 --outfile=dist/code.js",
+    "build:ui": "vite build --minify esbuild --emptyOutDir=false",
+    "build:watch": "concurrently -n backend,ui \"pnpm run build:main --watch\" \"pnpm run build:ui --watch\"",
+    "dev": "pnpm build:watch"
+  },
+  "dependencies": {
+    "@figma/plugin-typings": "^1.114.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/node": "^24.0.4",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@typescript-eslint/eslint-plugin": "^8.35.0",
+    "@typescript-eslint/parser": "^8.35.0",
+    "@vitejs/plugin-react": "^4.6.0",
+    "@vitejs/plugin-react-swc": "^3.10.2",
+    "concurrently": "^9.2.0",
+    "esbuild": "^0.25.5",
+    "eslint-config-custom": "workspace:*",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "postcss": "^8.5.6",
+    "tailwindcss": "4.0.14",
+    "tsconfig": "workspace:*",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.19",
+    "vite-plugin-singlefile": "^2.2.0"
+  }
+}

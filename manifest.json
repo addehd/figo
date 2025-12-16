@@ -1,0 +1,11 @@
+{
+  "name": "Figo",
+  "id": "figo-plugin",
+  "api": "1.0.0",
+  "main": "apps/plugin/dist/code.js",
+  "ui": "apps/plugin/dist/index.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["none"]
+  }
+}
