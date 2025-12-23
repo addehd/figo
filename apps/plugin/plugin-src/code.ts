@@ -58,115 +58,114 @@ async function sendSelectionToUI() {
   });
 }
 
-function serializeNode(node: SceneNode): any {
-  // Start with all enumerable properties
-  const data: any = {};
-  
-  // Basic properties
-  data.id = node.id;
-  data.name = node.name;
-  data.type = node.type;
-  data.visible = node.visible;
-  data.locked = node.locked;
-  data.removed = node.removed;
-  
-  // Position and dimensions
-  if ("x" in node) data.x = node.x;
-  if ("y" in node) data.y = node.y;
-  if ("width" in node) data.width = node.width;
-  if ("height" in node) data.height = node.height;
-  if ("rotation" in node) data.rotation = node.rotation;
-  
-  // Layout properties
-  if ("layoutMode" in node) data.layoutMode = node.layoutMode;
-  if ("layoutAlign" in node) data.layoutAlign = node.layoutAlign;
-  if ("primaryAxisAlignItems" in node) data.primaryAxisAlignItems = node.primaryAxisAlignItems;
-  if ("counterAxisAlignItems" in node) data.counterAxisAlignItems = node.counterAxisAlignItems;
-  if ("primaryAxisSizingMode" in node) data.primaryAxisSizingMode = node.primaryAxisSizingMode;
-  if ("counterAxisSizingMode" in node) data.counterAxisSizingMode = node.counterAxisSizingMode;
-  if ("paddingLeft" in node) data.paddingLeft = node.paddingLeft;
-  if ("paddingRight" in node) data.paddingRight = node.paddingRight;
-  if ("paddingTop" in node) data.paddingTop = node.paddingTop;
-  if ("paddingBottom" in node) data.paddingBottom = node.paddingBottom;
-  if ("itemSpacing" in node) data.itemSpacing = node.itemSpacing;
-  
-  // Opacity and blend mode
-  if ("opacity" in node) data.opacity = node.opacity;
-  if ("blendMode" in node) data.blendMode = node.blendMode;
-  if ("isMask" in node) data.isMask = node.isMask;
-  if ("effects" in node) data.effects = node.effects;
-  if ("effectStyleId" in node) data.effectStyleId = node.effectStyleId;
-  
-  // Fills and strokes
-  if ("fills" in node) data.fills = node.fills;
-  if ("strokes" in node) data.strokes = node.strokes;
-  if ("strokeWeight" in node) data.strokeWeight = node.strokeWeight;
-  if ("strokeAlign" in node) data.strokeAlign = node.strokeAlign;
-  if ("strokeCap" in node) data.strokeCap = node.strokeCap;
-  if ("strokeJoin" in node) data.strokeJoin = node.strokeJoin;
-  if ("fillStyleId" in node) data.fillStyleId = node.fillStyleId;
-  if ("strokeStyleId" in node) data.strokeStyleId = node.strokeStyleId;
-  
-  // Corner radius
-  if ("cornerRadius" in node) data.cornerRadius = node.cornerRadius;
-  if ("topLeftRadius" in node) data.topLeftRadius = node.topLeftRadius;
-  if ("topRightRadius" in node) data.topRightRadius = node.topRightRadius;
-  if ("bottomLeftRadius" in node) data.bottomLeftRadius = node.bottomLeftRadius;
-  if ("bottomRightRadius" in node) data.bottomRightRadius = node.bottomRightRadius;
-  
-  // Text properties
-  if ("characters" in node) data.characters = node.characters;
-  if ("fontSize" in node) data.fontSize = node.fontSize;
-  if ("fontName" in node) data.fontName = node.fontName;
-  if ("textAlignHorizontal" in node) data.textAlignHorizontal = node.textAlignHorizontal;
-  if ("textAlignVertical" in node) data.textAlignVertical = node.textAlignVertical;
-  if ("lineHeight" in node) data.lineHeight = node.lineHeight;
-  if ("letterSpacing" in node) data.letterSpacing = node.letterSpacing;
-  if ("textCase" in node) data.textCase = node.textCase;
-  if ("textDecoration" in node) data.textDecoration = node.textDecoration;
-  if ("textStyleId" in node) data.textStyleId = node.textStyleId;
-  
-  // Constraints
-  if ("constraints" in node) data.constraints = node.constraints;
-  
-  // Parent and children info
-  if (node.parent) {
-    data.parent = {
-      id: node.parent.id,
-      name: node.parent.name,
-      type: node.parent.type,
-    };
+type UIElement = {
+  id: string;
+  type: 'button' | 'input' | 'map' | 'sheet' | 'pin' | 'container' | string;
+  name?: string;
+  style?: {
+    width?: number | 'full';
+    height?: number;
+    backgroundColor?: string;
+    borderRadius?: number;
+    position?: 'absolute' | 'relative';
+    top?: number;
+    left?: number;
+  };
+  children?: UIElement[];
+  props?: {
+    placeholder?: string;
+    onPress?: string;
+    icon?: string;
+    text?: string;
+    keyboardType?: 'url' | 'default';
+  };
+};
+
+function extractColor(fills: readonly Paint[] | symbol): string | undefined {
+  if (typeof fills === 'symbol' || !Array.isArray(fills) || fills.length === 0) {
+    return undefined;
   }
   
-  if ("children" in node) {
-    data.childrenCount = node.children.length;
-    // Recursively serialize all children
-    data.children = node.children.map(child => serializeNode(child));
+  const solidFill = fills.find(fill => fill.type === 'SOLID' && fill.visible !== false);
+  if (solidFill && solidFill.type === 'SOLID') {
+    const { r, g, b } = solidFill.color;
+    const a = solidFill.opacity ?? 1;
+    if (a === 1) {
+      return `#${Math.round(r * 255).toString(16).padStart(2, '0')}${Math.round(g * 255).toString(16).padStart(2, '0')}${Math.round(b * 255).toString(16).padStart(2, '0')}`;
+    }
+    return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`;
+  }
+  return undefined;
+}
+
+function inferComponentType(node: SceneNode): UIElement['type'] {
+  const name = node.name.toLowerCase();
+  
+  if (name.includes('button') || name.includes('btn')) return 'button';
+  if (name.includes('input') || name.includes('textfield')) return 'input';
+  if (name.includes('map')) return 'map';
+  if (name.includes('sheet') || name.includes('modal')) return 'sheet';
+  if (name.includes('pin') || name.includes('marker')) return 'pin';
+  if (node.type === 'FRAME' || node.type === 'GROUP') return 'container';
+  
+  return node.type.toLowerCase();
+}
+
+function serializeNode(node: SceneNode): UIElement {
+  const element: UIElement = {
+    id: node.id,
+    type: inferComponentType(node),
+    name: node.name,
+    style: {},
+    props: {},
+  };
+  
+  // Extract dimensions
+  if ('width' in node && node.width) {
+    element.style!.width = Math.round(node.width);
+  }
+  if ('height' in node && node.height) {
+    element.style!.height = Math.round(node.height);
   }
   
-  // Plugin data and shared plugin data
-  if ("getPluginData" in node) {
-    const pluginDataKeys = node.getPluginDataKeys();
-    if (pluginDataKeys.length > 0) {
-      data.pluginData = {};
-      pluginDataKeys.forEach(key => {
-        data.pluginData[key] = node.getPluginData(key);
-      });
+  // Extract position
+  if ('x' in node && 'y' in node) {
+    element.style!.left = Math.round(node.x);
+    element.style!.top = Math.round(node.y);
+  }
+  
+  // Extract background color
+  if ('fills' in node) {
+    const bgColor = extractColor(node.fills);
+    if (bgColor) {
+      element.style!.backgroundColor = bgColor;
     }
   }
   
-  // Absolute position
-  if ("absoluteTransform" in node) {
-    data.absoluteTransform = node.absoluteTransform;
-  }
-  if ("absoluteBoundingBox" in node) {
-    data.absoluteBoundingBox = node.absoluteBoundingBox;
+  // Extract border radius
+  if ('cornerRadius' in node && typeof node.cornerRadius === 'number') {
+    element.style!.borderRadius = Math.round(node.cornerRadius);
   }
   
-  // Export settings
-  if ("exportSettings" in node) data.exportSettings = node.exportSettings;
+  // Extract text content for text nodes
+  if ('characters' in node && typeof node.characters === 'string') {
+    element.props!.text = node.characters;
+  }
   
-  return data;
+  // Recursively serialize children
+  if ('children' in node && node.children.length > 0) {
+    element.children = node.children.map(child => serializeNode(child));
+  }
+  
+  // Clean up empty objects
+  if (Object.keys(element.style!).length === 0) {
+    delete element.style;
+  }
+  if (Object.keys(element.props!).length === 0) {
+    delete element.props;
+  }
+  
+  return element;
 }
 
 // Handle messages from UI
