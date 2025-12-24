@@ -52,9 +52,20 @@ async function sendSelectionToUI() {
     })
   );
   
+  // Fetch comments and attach to nodes
+  const nodeIds = selectionData.map(n => n.id);
+  const allComments = await fetchComments(figma.fileKey || '', nodeIds);
+  
+  selectionData.forEach((node: any) => {
+    node.comments = allComments.filter(
+      (comment: any) => comment.client_meta?.node_id === node.id
+    );
+  });
+  
   figma.ui.postMessage({
     type: "selection",
     data: selectionData,
+    fileKey: figma.fileKey,
   });
 }
 
@@ -168,9 +179,56 @@ function serializeNode(node: SceneNode): UIElement {
   return element;
 }
 
+// Fetch comments from Figma API
+async function fetchComments(fileKey: string, nodeIds: string[]): Promise<any[]> {
+  const accessToken = await figma.clientStorage.getAsync('figmaAccessToken');
+  
+  if (!accessToken) {
+    console.log('No access token available, skipping comments fetch');
+    return [];
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.figma.com/v1/files/${fileKey}/comments`,
+      {
+        headers: {
+          'X-Figma-Token': accessToken,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Failed to fetch comments:', response.statusText);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.comments || [];
+  } catch (err) {
+    console.error('Error fetching comments:', err);
+    return [];
+  }
+}
+
 // Handle messages from UI
-figma.ui.onmessage = (msg) => {
+figma.ui.onmessage = async (msg) => {
   if (msg.type === "close") {
     figma.closePlugin();
+  }
+  
+  if (msg.type === "saveToken") {
+    await figma.clientStorage.setAsync('figmaAccessToken', msg.token);
+    figma.ui.postMessage({ type: "tokenSaved" });
+  }
+  
+  if (msg.type === "getToken") {
+    const token = await figma.clientStorage.getAsync('figmaAccessToken');
+    figma.ui.postMessage({ type: "token", token: token || '' });
+  }
+  
+  if (msg.type === "clearToken") {
+    await figma.clientStorage.deleteAsync('figmaAccessToken');
+    figma.ui.postMessage({ type: "tokenCleared" });
   }
 };

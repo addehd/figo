@@ -11,6 +11,13 @@ interface NodeData {
 function App() {
   const [selection, setSelection] = useState<NodeData[] | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string>('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [tokenInput, setTokenInput] = useState('');
+
+  const saveToken = () => {
+    parent.postMessage({ pluginMessage: { type: 'saveToken', token: tokenInput } }, '*');
+  };
 
   const copyToClipboard = (node: NodeData) => {
     try {
@@ -38,15 +45,37 @@ function App() {
   };
 
   useEffect(() => {
+    // Request token on mount
+    parent.postMessage({ pluginMessage: { type: 'getToken' } }, '*');
+    
     // Listen for messages from plugin backend
-    window.onmessage = (event) => {
+    const handleMessage = (event: MessageEvent) => {
       const msg = event.data.pluginMessage;
       
       if (msg.type === "selection") {
         console.log("Full selection data:", msg.data);
         setSelection(msg.data);
       }
+      
+      if (msg.type === "token") {
+        setAccessToken(msg.token);
+        setTokenInput(msg.token);
+      }
+      
+      if (msg.type === "tokenSaved") {
+        setShowSettings(false);
+        // Re-request token to update accessToken state
+        parent.postMessage({ pluginMessage: { type: 'getToken' } }, '*');
+      }
+      
+      if (msg.type === "tokenCleared") {
+        setAccessToken('');
+        setTokenInput('');
+      }
     };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
   
   useEffect(() => {
@@ -58,8 +87,94 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>Figo</h1>
-        <p className="subtitle">Select elements in Figma to view their data</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1>Figo</h1>
+            <p className="subtitle">Select elements in Figma to view their data</p>
+          </div>
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            style={{
+              padding: '8px 12px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              borderRadius: '4px',
+              border: '1px solid #ccc',
+              background: '#fff',
+            }}
+          >
+            ⚙️ Settings
+          </button>
+        </div>
+        
+        {showSettings && (
+          <div style={{
+            marginTop: '16px',
+            padding: '16px',
+            background: '#f5f5f5',
+            borderRadius: '8px',
+          }}>
+            <h3 style={{ marginTop: 0, marginBottom: '8px' }}>Figma Access Token</h3>
+            <p style={{ fontSize: '12px', color: '#666', marginBottom: '12px' }}>
+              Enter your personal access token to fetch comments.
+              <a
+                href="https://help.figma.com/hc/en-us/articles/8085703771159-Manage-personal-access-tokens"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ marginLeft: '4px' }}
+              >
+                Learn how to generate one →
+              </a>
+            </p>
+            <input
+              type="text"
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              placeholder="figd_..."
+              style={{
+                width: '100%',
+                padding: '8px',
+                fontSize: '14px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                marginBottom: '8px',
+              }}
+            />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={saveToken}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  borderRadius: '4px',
+                  border: 'none',
+                  background: '#0d99ff',
+                  color: '#fff',
+                }}
+              >
+                Save Token
+              </button>
+              {accessToken && (
+                <button
+                  onClick={() => {
+                    parent.postMessage({ pluginMessage: { type: 'clearToken' } }, '*');
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    borderRadius: '4px',
+                    border: '1px solid #ccc',
+                    background: '#fff',
+                  }}
+                >
+                  Clear Token
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="content">
