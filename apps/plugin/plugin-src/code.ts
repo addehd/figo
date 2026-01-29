@@ -81,6 +81,8 @@ type UIElement = {
     position?: 'absolute' | 'relative';
     top?: number;
     left?: number;
+    parentWidth?: number;
+    parentHeight?: number;
   };
   children?: UIElement[];
   props?: {
@@ -122,7 +124,7 @@ function inferComponentType(node: SceneNode): UIElement['type'] {
   return node.type.toLowerCase();
 }
 
-function serializeNode(node: SceneNode): UIElement {
+function serializeNode(node: SceneNode, parentWidth?: number, parentHeight?: number): UIElement {
   const element: UIElement = {
     id: node.id,
     type: inferComponentType(node),
@@ -130,6 +132,14 @@ function serializeNode(node: SceneNode): UIElement {
     style: {},
     props: {},
   };
+  
+  // Store parent dimensions for percentage calculation
+  if (parentWidth) {
+    element.style!.parentWidth = parentWidth;
+  }
+  if (parentHeight) {
+    element.style!.parentHeight = parentHeight;
+  }
   
   // Extract dimensions
   if ('width' in node && node.width) {
@@ -163,9 +173,11 @@ function serializeNode(node: SceneNode): UIElement {
     element.props!.text = node.characters;
   }
   
-  // Recursively serialize children
+  // Recursively serialize children with current node dimensions as parent
   if ('children' in node && node.children.length > 0) {
-    element.children = node.children.map(child => serializeNode(child));
+    const w = 'width' in node ? Math.round(node.width) : undefined;
+    const h = 'height' in node ? Math.round(node.height) : undefined;
+    element.children = node.children.map(child => serializeNode(child, w, h));
   }
   
   // Clean up empty objects

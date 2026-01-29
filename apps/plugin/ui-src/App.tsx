@@ -5,7 +5,85 @@ interface NodeData {
   id: string;
   name: string;
   type: string;
+  style?: {
+    width?: number;
+    height?: number;
+    left?: number;
+    top?: number;
+    backgroundColor?: string;
+    borderRadius?: number;
+    parentWidth?: number;
+    parentHeight?: number;
+  };
+  props?: {
+    text?: string;
+  };
+  children?: NodeData[];
   [key: string]: any; // Allow any properties from Figma
+}
+
+function sanitizeClassName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9-_]/g, '-').replace(/^-+|-+$/g, '').replace(/-+/g, '-');
+}
+
+function generateHTML(node: NodeData, isRoot = true, indent = 0): string {
+  const className = sanitizeClassName(node.name);
+  const style = node.style || {};
+  const spaces = '  '.repeat(indent);
+  
+  const styles: string[] = [];
+  
+  if (isRoot) {
+    styles.push('position: relative');
+    if (style.width) styles.push(`width: ${style.width}px`);
+    if (style.height) styles.push(`height: ${style.height}px`);
+  } else {
+    styles.push('position: absolute');
+    const pw = style.parentWidth;
+    const ph = style.parentHeight;
+    
+    // Check if element is centered horizontally
+    if (pw && style.left !== undefined && style.width) {
+      const nodeCenter = style.left + (style.width / 2);
+      const parentCenter = pw / 2;
+      const isCentered = Math.abs(nodeCenter - parentCenter) < 5;
+      
+      if (isCentered) {
+        styles.push('left: 50%');
+        styles.push('transform: translateX(-50%)');
+      } else {
+        const leftPct = (style.left / pw) * 100;
+        styles.push(`left: ${leftPct.toFixed(2)}%`);
+      }
+    }
+    
+    if (ph && style.top !== undefined) {
+      const topPct = (style.top / ph) * 100;
+      styles.push(`top: ${topPct.toFixed(2)}%`);
+    }
+    
+    if (pw && style.width) {
+      const widthPct = (style.width / pw) * 100;
+      styles.push(`width: ${widthPct.toFixed(2)}%`);
+    }
+    
+    if (ph && style.height) {
+      const heightPct = (style.height / ph) * 100;
+      styles.push(`height: ${heightPct.toFixed(2)}%`);
+    }
+  }
+  
+  if (style.backgroundColor) styles.push(`background-color: ${style.backgroundColor}`);
+  if (style.borderRadius) styles.push(`border-radius: ${style.borderRadius}px`);
+  
+  const styleAttr = styles.length ? ` style="${styles.join('; ')}"` : '';
+  const textContent = node.props?.text || '';
+  const children = node.children?.map(c => generateHTML(c, false, indent + 1)).join('\n') || '';
+  
+  if (children) {
+    return `${spaces}<div class="${className}"${styleAttr}>\n${textContent ? spaces + '  ' + textContent + '\n' : ''}${children}\n${spaces}</div>`;
+  }
+  return `${spaces}<div class="${className}"${styleAttr}>${textContent}</div>`;
 }
 
 function App() {
@@ -14,18 +92,21 @@ function App() {
   const [accessToken, setAccessToken] = useState<string>('');
   const [showSettings, setShowSettings] = useState(false);
   const [tokenInput, setTokenInput] = useState('');
+  const [viewMode, setViewMode] = useState<'json' | 'html'>('json');
 
   const saveToken = () => {
     parent.postMessage({ pluginMessage: { type: 'saveToken', token: tokenInput } }, '*');
   };
 
-  const copyToClipboard = (node: NodeData) => {
+  const copyToClipboard = (node: NodeData, mode: 'json' | 'html') => {
     try {
-      const jsonText = JSON.stringify(node, null, 2);
+      const text = mode === 'json' 
+        ? JSON.stringify(node, null, 2)
+        : generateHTML(node);
       
       // Create a temporary textarea element
       const textarea = document.createElement('textarea');
-      textarea.value = jsonText;
+      textarea.value = text;
       textarea.style.position = 'fixed';
       textarea.style.opacity = '0';
       document.body.appendChild(textarea);
@@ -191,39 +272,67 @@ function App() {
                   <h3 className="node-name">{node.name}</h3>
                 </div>
                 <div className="node-details">
-                  <details open>
-                    <summary style={{ cursor: "pointer", fontWeight: "bold", marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span>Full Object Data</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          copyToClipboard(node);
-                        }}
-                        style={{
-                          padding: "4px 12px",
-                          fontSize: "12px",
-                          cursor: "pointer",
-                          borderRadius: "4px",
-                          border: "1px solid #ccc",
-                          background: copiedId === node.id ? "#4CAF50" : "#fff",
-                          color: copiedId === node.id ? "#fff" : "#333",
-                          transition: "all 0.2s"
-                        }}
-                      >
-                        {copiedId === node.id ? "✓ Copied!" : "Copy"}
-                      </button>
-                    </summary>
-                    <pre style={{
-                      background: "#f5f5f5",
-                      padding: "12px",
-                      borderRadius: "4px",
-                      overflow: "auto",
-                      fontSize: "12px",
-                      maxHeight: "400px"
-                    }}>
-                      {JSON.stringify(node, null, 2)}
-                    </pre>
-                  </details>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                    <button
+                      onClick={() => setViewMode('json')}
+                      style={{
+                        padding: "4px 12px",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        borderRadius: "4px",
+                        border: "1px solid #ccc",
+                        background: viewMode === 'json' ? "#18a0fb" : "#fff",
+                        color: viewMode === 'json' ? "#fff" : "#333",
+                        fontWeight: viewMode === 'json' ? "600" : "400",
+                      }}
+                    >
+                      JSON
+                    </button>
+                    <button
+                      onClick={() => setViewMode('html')}
+                      style={{
+                        padding: "4px 12px",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        borderRadius: "4px",
+                        border: "1px solid #ccc",
+                        background: viewMode === 'html' ? "#18a0fb" : "#fff",
+                        color: viewMode === 'html' ? "#fff" : "#333",
+                        fontWeight: viewMode === 'html' ? "600" : "400",
+                      }}
+                    >
+                      HTML
+                    </button>
+                    <button
+                      onClick={() => copyToClipboard(node, viewMode)}
+                      style={{
+                        padding: "4px 12px",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        borderRadius: "4px",
+                        border: "1px solid #ccc",
+                        background: copiedId === node.id ? "#4CAF50" : "#fff",
+                        color: copiedId === node.id ? "#fff" : "#333",
+                        transition: "all 0.2s",
+                        marginLeft: "auto",
+                      }}
+                    >
+                      {copiedId === node.id ? "✓ Copied!" : "Copy"}
+                    </button>
+                  </div>
+                  <pre style={{
+                    background: "#f5f5f5",
+                    padding: "12px",
+                    borderRadius: "4px",
+                    overflow: "auto",
+                    fontSize: "12px",
+                    maxHeight: "400px"
+                  }}>
+                    {viewMode === 'json' 
+                      ? JSON.stringify(node, null, 2)
+                      : generateHTML(node)
+                    }
+                  </pre>
                 </div>
               </div>
             ))}
